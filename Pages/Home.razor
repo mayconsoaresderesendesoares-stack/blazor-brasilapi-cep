@@ -1,0 +1,87 @@
+﻿@page "/"
+@using System.Net.Http.Json
+@using BlazorWasmBrasilApiCep.Models
+@inject HttpClient Http
+
+<PageTitle>Consulta CEP BrasilAPI</PageTitle>
+
+<h1>Consulta de CEP com Blazor WebAssembly</h1>
+
+<div class="row mb-3">
+    <div class="col-md-4">
+        <label for="cepInput" class="form-label">Digite o CEP:</label>
+        <input id="cepInput" class="form-control" @bind="cepDigitado" placeholder="Ex: 01001000" />
+    </div>
+    <div class="col-md-2 d-flex align-items-end">
+        <button class="btn btn-primary w-100" @onclick="ConsultarCep" disabled="@carregando">
+            @(carregando ? "Buscando..." : "Consultar")
+        </button>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(mensagemErro))
+{
+    <div class="alert alert-danger mt-3">@mensagemErro</div>
+}
+
+@if (cepModelo != null)
+{
+    <div class="card p-3 mt-3" style="max-width: 500px;">
+        <h3>Endereço Encontrado</h3>
+        <p><strong>CEP:</strong> @cepModelo.cep</p>
+        <p><strong>Logradouro:</strong> @cepModelo.street</p>
+        <p><strong>Bairro:</strong> @cepModelo.neighborhood</p>
+        <p><strong>Cidade:</strong> @cepModelo.city (@cepModelo.state)</p>
+        <p><strong>Serviço:</strong> @cepModelo.service</p>
+
+        @if (cepModelo.ibge != null)
+        {
+            <hr />
+            <h4>Dados do IBGE</h4>
+            <p><strong>Cidade IBGE:</strong> @cepModelo.ibge.city</p>
+            <p><strong>Estado IBGE:</strong> @cepModelo.ibge.state</p>
+        }
+    </div>
+}
+
+@code {
+    private string cepDigitado = string.Empty;
+    private Cep? cepModelo;
+    private string mensagemErro = string.Empty;
+    private bool carregando = false;
+
+    private async Task ConsultarCep()
+    {
+        mensagemErro = string.Empty;
+        cepModelo = null;
+
+        var cepLimpo = cepDigitado.Replace("-", "").Trim();
+
+        if (string.IsNullOrWhiteSpace(cepLimpo) || cepLimpo.Length != 8)
+        {
+            mensagemErro = "Por favor, digite um CEP válido com 8 dígitos.";
+            return;
+        }
+
+        try
+        {
+            carregando = true;
+            cepModelo = await Http.GetFromJsonAsync<Cep>($"api/cep/v1/{cepLimpo}");
+        }
+        catch (Exception ex)
+        {
+            try 
+            {
+                cepModelo = await Http.GetFromJsonAsync<Cep>($"cep/v1/{cepLimpo}");
+            }
+            catch
+            {
+                mensagemErro = "CEP não encontrado ou erro ao consultar a API.";
+            }
+        }
+        finally
+        {
+            carregando = false;
+        }
+    }
+}
